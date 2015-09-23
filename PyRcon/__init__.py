@@ -7,22 +7,6 @@ from .Exceptions import NoResponseError
 class RemoteConsole(object):
     _SEQUENCE = 0x00
     _CHUNKSZ = 2048
-    @classmethod
-    def scan(cls,password,hostname):
-        port = 28900
-        found = False
-        while not found:
-            r = cls(password,hostname,port)
-            try:
-                if r.verify():
-                    return r
-            except:
-                found = False
-            port += 1
-            if port > 29000:
-                raise ValueError('port is %s' % (port))
-        raise ValueError("nobody home")
-            
     
     def __init__(self,password,hostname='localhost',port=28960):
         self.password = password
@@ -47,6 +31,7 @@ class RemoteConsole(object):
             data.extend(map(lambda c:ord(c),'print\n'))
             self._reply_header = bytes(data)
         return self._reply_header
+    
     
     def send(self,message,encoding,timeout,retries):
         '''
