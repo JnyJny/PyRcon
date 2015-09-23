@@ -527,8 +527,3 @@ class rcons(object):
         cnt = int(text[-2].split()[0])
         cmds.sort()
         return len(cmds) == cnt,cmds
-
-host = '75.108.162.152'
-
-r = rcons('foobar')
-
