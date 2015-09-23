@@ -453,9 +453,6 @@ class CoD4RemoteConsole(RemoteConsole):
         ~/Library/Application Support/Call of Duty 4/main/<filename>
         '''
         results = self.send('writedefaults %s' % (filename))
-        
-
-host = '75.108.162.152'
 
 r = CoD4RemoteConsole('foobar')
 
