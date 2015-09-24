@@ -61,12 +61,29 @@ class BaseRemoteConsole(object):
             data.extend(map(ord,self._RCON_CMD))
             self._prefix = bytes(data)
         return self._prefix
-    
+
+    @property
+    def udp_sock(self):
+        '''
+        An (AF_INET,SOCK_DGRAM) socket
+        '''
+        try:
+            return self._udp_sock
+        except AttributeError:
+            self._udp_sock = socket(AF_INET,SOCK_DGRAM)
+        return self._udp_sock
+
+    @property
+    def address(self):
+        '''
+        A tuple of (host,port), determines where messages are sent.
+        '''
+        return (self.host,self.port)
     
     def send(self,message,encoding,timeout,retries):
         '''
         :param: message  - string holding command to send to server
-        :param: encoding - string, typically 'utf-8'
+        :param: encoding - string, typically 'utf-8'   XXX necessary?
         :param: timeout  - float value in seconds 
         :param: retries  - integer number of times to timeout before failing
 
@@ -75,14 +92,17 @@ class BaseRemoteConsole(object):
         Sends 'message' to the server and waits for a response.
 
         Longer responses may entail receiving multiple UDP packets to
-        collect the entire response.
+        collect the entire response.  Changing the timeout duration
+        and the retries count will allow callers to find values that
+        work for their target server.
 
-        The protocol does not have an EOM component, so a timeout
-        scheme is used to decide when the response is complete.
+        The Quake-style protocol does not have an EOM component, so a
+        timeout scheme is used to decide when the response is
+        complete.
 
         If no data is received after (timeout * retries) seconds,
         the NoResponseError exception is raised with message that was
-        not acknowledged and the timeout and retries used. 
+        not acknowledged and the timeout and retries used.
 
         '''
         
@@ -112,25 +132,6 @@ class BaseRemoteConsole(object):
         text = ''.join([chunk.decode() for chunk in chunks])
 
         return text
-
-            
-    @property
-    def udp_sock(self):
-        '''
-        An (AF_INET,SOCK_DGRAM) socket
-        '''
-        try:
-            return self._udp_sock
-        except AttributeError:
-            self._udp_sock = socket(AF_INET,SOCK_DGRAM)
-        return self._udp_sock
-
-    @property
-    def address(self):
-        '''
-        A tuple of (host,port), determines where messages are sent.
-        '''
-        return (self.host,self.port)
     
     def clean(self,text,strdefs,emptyString=''):
         '''
