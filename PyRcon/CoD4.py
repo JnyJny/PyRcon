@@ -3,29 +3,31 @@ from .Exceptions import *
 from time import sleep
 
 class CoD4RemoteConsole(RemoteConsole):
-    _SEQUENCE=0x06
+    '''
+    '''
+    _SEQUENCE=0x02
     _CHUNKSZ=4096
-    _maps = { 'mp_convoy':'Ambush',
-              'mp_backlot':'Backlot',
-              'mp_bloc':'Bloc',
-              'mp_bog':'Bog',
-              'mp_countdown':'Countdown',
-              'mp_crash':'Crash',
-              'mp_crossfire':'Crossfire',
+    _maps = { 'mp_convoy':     'Ambush',
+              'mp_backlot':    'Backlot',
+              'mp_bloc':       'Bloc',
+              'mp_bog':        'Bog',
+              'mp_countdown':  'Countdown',
+              'mp_crash':      'Crash',
+              'mp_crossfire':  'Crossfire',
               'mp_citystreets':'District',
-              'mp_farm':'Downpour',
-              'mp_overgrown':'Overgrown',
-              'mp_pipeline':'Pipeline',
-              'mp_shipment':'Shipment',
-              'mp_showdown':'Showdown',
-              'mp_strike':'Strike',
-              'mp_vacant':'Vacant',
-              'mp_cargoship':'WetWork',
-              'mp_crash_snow':'WinterCrash',
-              'mp_broadcast':'Broadcast',
-              'mp_carentan':'Chinatown',
-              'mp_creek':'Creek',
-              'mp_killhouse':'Killhouse' }
+              'mp_farm':       'Downpour',
+              'mp_overgrown':  'Overgrown',
+              'mp_pipeline':   'Pipeline',
+              'mp_shipment':   'Shipment',
+              'mp_showdown':   'Showdown',
+              'mp_strike':     'Strike',
+              'mp_vacant':     'Vacant',
+              'mp_cargoship':  'WetWork',
+              'mp_crash_snow': 'WinterCrash',
+              'mp_broadcast':  'Broadcast',
+              'mp_carentan':   'Chinatown',
+              'mp_creek':      'Creek',
+              'mp_killhouse':  'Killhouse' }
 
     def send(self,message,encoding='utf-8',timeout=0.05,retries=2):
         '''
@@ -39,14 +41,11 @@ class CoD4RemoteConsole(RemoteConsole):
                                                   encoding,
                                                   timeout,
                                                   retries)
-        
         lctext = text[:32].lower()
 
-        if lctext.count('usage:'):
-            raise UsageError(message,text)
-
-        if lctext.count('unknown command'):
-            raise UsageError(message,text)
+        for phrase in [ 'usage:','unknown command' ]:
+            if lctext.count(phrase):
+                raise UsageError(message,text)
 
         return text
 
@@ -56,9 +55,11 @@ class CoD4RemoteConsole(RemoteConsole):
         if filterfunc is None:
             filterfunc = lambda x: len(x)
         return [x for x in self.send(cmd).split('\n') if filterfunc(x)]
-        
+
     @property
     def bindlist(self):
+        '''
+        '''
         l = {}
         for pair in self._list('bindlist'):
             if len(pair) == 0:
@@ -69,20 +70,28 @@ class CoD4RemoteConsole(RemoteConsole):
     
     @property
     def channels(self):
+        '''
+        '''
         return self._list('con_channellist')
 
     @property
     def visible_channels(self):
+        '''
+        '''
         return self._list('con_visiblechannellist')
     
     @property
     def cmdlist(self):
+        '''
+        '''
         cmds = self._list('cmdlist')[:-1]
         cmds.sort()
         return cmds
 
     @property
     def dvarlist(self):
+        '''
+        '''
         dvars = []
         for line in self._list('dvarlist')[:-1]:
             name,_,value = line.partition('"')
@@ -91,23 +100,33 @@ class CoD4RemoteConsole(RemoteConsole):
     
     @property
     def fullpath(self):
+        '''
+        '''
         return self.send('fullpath')
 
     @property
     def meminfo(self):
+        '''
+        '''
         return self.send('meminfo')
 
     @property
     def net_dumpprofile(self):
+        '''
+        '''
         return self.send('net_dumpprofile')
 
     @property
     def language(self):
+        '''
+        '''
         text = self._list('path')
         return text[0].split()[-1]
 
     @property
     def fileHandles(self):
+        '''
+        '''
         fh = []
         for line in self._list('path'):
             if line.startswith('handle'):
@@ -116,6 +135,8 @@ class CoD4RemoteConsole(RemoteConsole):
     
     @property
     def path(self):
+        '''
+        '''
         p = []
         for line in self._list('path'):
             if line.startswith('/'):
@@ -124,6 +145,8 @@ class CoD4RemoteConsole(RemoteConsole):
     
     @property
     def players(self):
+        '''
+        '''
         status = self._list('status')
         if len(status) < 3:
             return {}
@@ -138,53 +161,84 @@ class CoD4RemoteConsole(RemoteConsole):
     
     @property
     def scriptUsage(self):
+        '''
+        '''
         return self.send('scriptUsage')
-        
-    @property
-    def serverinfo(self):
-        d = {}
-        for entry in self._list('serverinfo')[1:]:
-            fields = entry.split(maxsplit=1)
-            if len(fields) == 1:
-                # fix up for long names butting into the value
-                k = fields[0][:-1]
-                v = fields[0][-1]
-            else:
-                k,v = fields
-            d.setdefault(k,v)
-        return d
-    
-    @property
-    def status(self):
-        return self.send('status')
 
     @property
-    def systeminfo(self):
+    def status(self):
+        '''
+        '''
+        return self.send('status')
+
+
+    def _info(self,which,pause=0.5):
+        '''
+        '''
+        # The systeminfo and serverinfo commands return key/value pairs,
+        # however the column width alloted for the key name isn't
+        # quite wide enough and key names can run into their values.
+        # This renders the pair unsplittable.
+        #
+        # In this case, the key name is disambiguated by searching the
+        # dvar name space for a matching key and associated value from
+        # a previous dvardump.
+        #
+        # A half-second pause between the dvardump and issuing the
+        # [system|server]info command is necessary to keep the server
+        # happy.
+
+        if not which in ['serverinfo','systeminfo']:
+            raise ValueError('%s not serverinfo or systeminfo' % (which))
+        
         dvars = self.dvardump()
-        sleep(0.5)
+        
+        sleep(pause)
+        
         d = {}
-        for entry in self._list('systeminfo')[1:]:
-            target = entry.split(maxsplit=1)[0]
+        for entry in self._list(which)[1:]:
+            fields = entry.split(maxsplit=1)
+            if len(fields) == 2:
+                d.setdefault(fields[0],fields[1])
+                continue
+
             for key,value in dvars.items():
-                if target.startswith(key):
+                if fields[0].startswith(key):
                     d.setdefault(key,value)
                     break
         return d
-                                  
+        
+    @property
+    def serverinfo(self):
+        '''
+        '''
+        return self._info('serverinfo')
+
+    @property
+    def systeminfo(self):
+        '''
+        '''
+        return self._info('systeminfo')
 
     ## read/write properties
 
     @property
     def mapname(self):
-        return self.clean(self.send('status').split()[1])
+        '''
+        '''
+        return self.dvardump('mapname')['mapname']
 
     @mapname.setter
     def mapname(self,mapname):
+        '''
+        '''
         self.map(mapname)
         
     ## methods with arguments
 
     def banClient(self,slotNumber):
+        '''
+        '''
         results = self.send('banclient %s' %(slotNumber))
         if results.lower().count('bad slot'):
             return False
@@ -193,6 +247,8 @@ class CoD4RemoteConsole(RemoteConsole):
         return True
 
     def banUser(self,user):
+        '''
+        '''
         results = self.send('banuser %s' % (user))
         if results.count('not on the server'):
             return False
@@ -212,16 +268,24 @@ class CoD4RemoteConsole(RemoteConsole):
             return {key.strip():cmd.strip()}
 
     def channel(self,channel,hide=False):
+        '''
+        '''
         cmd = { True:'con_hidechannel',False:'con_showchannel'}[hide]
         results = self.send('%s %s' % (cmd,channel))
 
     def chatmode(self,mode='team'):
+        '''
+        '''
         self.send('chatmode%s'%(mode))
         
     def clientkick(self,client):
+        '''
+        '''
         result = self.send('clientkick %s' % (client))
 
     def dir(self,path='.',ext=''):
+        '''
+        '''
         if ('*' in path) or ('?' in path):
             files = self._list('fdir %s' %(path))
             del(files[0])
@@ -232,10 +296,11 @@ class CoD4RemoteConsole(RemoteConsole):
         return files
 
     def dumpuser(self,user):
+        '''
+        '''
         results = self._list('dumpuser %s' %(user))
         if results[0].lower().count('not on the server'):
-            raise PlayerNotFound(user)
-        
+            raise PlayerNotFound(user) # XXX exception or empty dict?
         d = {}
         for pair in results[2:]:
             key,value = pair.split()
@@ -243,6 +308,8 @@ class CoD4RemoteConsole(RemoteConsole):
         return d
 
     def dvardump(self,name=''):
+        '''
+        '''
         good = lambda t: len(t) and '==' not in t
         dlist = self._list('dvardump %s' % name,good)
         total = int(dlist[-2].split()[0])
@@ -253,26 +320,37 @@ class CoD4RemoteConsole(RemoteConsole):
         return dvars
 
     def dvar_int(self,name,value,minimum,maximum):
+        '''
+        '''
         msg = 'dvar_int %s %s %s %s'
         msg %= (name,value,minimum,maximum)
         result = self.send(msg)
 
     def dvar_float(self,name,value,minimum,maximum):
+        '''
+        '''
         msg = 'dvar_float %s %s %s %s'
         msg %= (name,value,minimum,maximum)
         result = self.send(msg)
 
     def dvar_bool(self,name,value):
+        '''
+        '''
         result = self.send('dvar_bool %s' % (value))
             
     def execute(self,filename):
+        '''
+        '''
         results = self.send('exec %s' % (filename))
 
     def gamecomplete(self):
+        '''
+        '''
         results = self.send('gamecompletestatus')
 
     def gametype(self,gtype='',restart=False):
-        
+        '''
+        '''
         result = self.send('g_gametype %s' % (gtype))
         
         if len(gtype) and restart:
@@ -291,6 +369,8 @@ class CoD4RemoteConsole(RemoteConsole):
         return d
     
     def heartbeat(self):
+        '''
+        '''
         results = self.send('heartbeat')
         
     def map(self,mapname,cheats=False):
@@ -303,9 +383,13 @@ class CoD4RemoteConsole(RemoteConsole):
             raise FileNotFound(mapname)
 
     def net_restart(self):
+        '''
+        '''
         result = self.send('net_restart')
 
     def onlykick(self,player):
+        '''
+        '''
         result = self.send('onlykick %s' % (player))
 
     def quit(self,really=False):
@@ -318,39 +402,51 @@ class CoD4RemoteConsole(RemoteConsole):
     # missing all the ragdoll commands
 
     def say(self,message):
+        '''
+        '''
         result = self.send('say %s' % message)
 
     def tell(self,who,message):
+        '''
+        '''
         result = self.send('tell %s %s' % (who,message))
 
-    def set(self,name,value):
-        return self.send('set %s %s' % (name,value))
-
-    def seta(self,name,value):
-        return self.send('seta %s %s' % (name,value))
-
     def next_map(self):
+        '''
+        '''
         result = self.send('map_rotate')
 
     def kick(self,player):
+        '''
+        '''
         result = self.send('kick %s' % player)
 
     def killserver(self):
+        '''
+        '''
         result = self.send('killserver')
 
     def restart(self,fast=False):
+        '''
+        '''
         if fast:
             result = self.send('fast_restart')
         else:
             result = self.send('map_restart',timeout=0.25)
 
     def reset(self,dvarname):
+        '''
+        '''
         pass
 
     def resetStats(self):
+        '''
+        '''
         results = self.send('resetStats')
 
     def selectStringTableEntryInDvar(self,index):
+        '''
+        '''
         pass
 
     def set(self,name,value):
@@ -378,12 +474,18 @@ class CoD4RemoteConsole(RemoteConsole):
         results = self.send('set %s %s' %(cmd,name,value))        
 
     def setPerk(self,user,perk):
+        '''
+        '''
         results = self.send('setPerk %s %s' %(user,perk))
 
     def setDvarToTime(self,dvarname):
+        '''
+        '''
         results = self.send('setdvartotime %s' %(dvarname))
 
     def setfromdvar(self,name,dvarname):
+        '''
+        '''
         results = self.send('setfromdvar %s %s' %(name,dvarname))
 
     def setfromlocstring(self,name,string):
@@ -393,51 +495,81 @@ class CoD4RemoteConsole(RemoteConsole):
         result = self.send('setfromlocstring %s %s' %(name,string))
 
     def statGetInDvar(self,index,dvarname):
+        '''
+        '''
         return self.send('statgetindvar %s %s' % (index,dvarname))
 
     def statSet(self,index,value):
+        '''
+        '''
         results = self.send('statSet %s %s' % (index,value))
 
     def tempBanClient(self,clientNumber):
+        '''
+        '''
         results = self.send('tempBanClient %s' % (clientNumber))
 
     def tempBanUser(self,user):
+        '''
+        '''
         results = self.send('tempBanUser %s' % (user))
 
     def timedemo(self):
+        '''
+        '''
         pass
 
     def toggle(self,name):
+        '''
+        '''
         results = self.send('toggle %s' % (name))
         
     def togglep(self,name,optionals=''):
+        '''
+        '''
         results = self.send('togglep %s %s' %(name,optionals))
         
     def toggleMenu(self):
+        '''
+        '''
         results = self.send('toggleMenu')
 
     def touchFile(self):
+        '''
+        '''
         pass
 
     def unbanUser(self,user):
+        '''
+        '''
         results = self.send('unbanUser %s' % (user))
 
     def unbind(self,key=None):
+        '''
+        '''
         if key is None:
             results = self.send('unbindall')
         else:
             results = self.send('unbind %s' %(key))
 
     def unskippableCinematic(self):
+        '''
+        '''
         pass
 
     def uploadStats(self):
+        '''
+        '''
         pass
 
     def vstr(self,string):
+        '''
+        '''
         results =self.send('vstr %s' % (string))
 
     def wait(self):
+        '''
+        '''
         pass
 
     def writeConfig(self,filename,defaults=False):

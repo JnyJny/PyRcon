@@ -130,7 +130,7 @@ class RemoteConsole(object):
             # 0xffffffff,0x02rcon\s
             data = [0xff,0xff,0xff,0xff,self._SEQUENCE]
             data.extend(map(ord,'rcon '))
-            self._prefix = bytes(data)
+            self._prefix = bytearray(data)
                                  
         return self._prefix
 
