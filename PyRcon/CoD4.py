@@ -1,9 +1,9 @@
 
-from .QuakeStyleRemoteConsole import RemoteConsole as RemoteConsoleBase
+from .QuakeRemoteConsole import BaseRemoteConsole
 from .Exceptions import *
 from time import sleep
 
-class RemoteConsole(RemoteConsoleBase):
+class RemoteConsole(BaseRemoteConsole):
     '''
     '''
     _SEQUENCE=0x02
@@ -64,6 +64,13 @@ class RemoteConsole(RemoteConsoleBase):
                 raise UsageError(message,text)
 
         return text
+
+    def clean(self,text,strdefs=[('^',2), ('"',1)]):
+        '''
+        CoD4 embeds ^[0-9] codes in text to specify text color 
+        and is over-enthusiastic with its use of double quotes.
+        '''
+        super(RemoteConsole,self).clean(text,strdefs)
 
     def _list(self,cmd,filterfunc=None):
         '''

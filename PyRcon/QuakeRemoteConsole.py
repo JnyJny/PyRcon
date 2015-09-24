@@ -1,4 +1,7 @@
 '''
+A Quake-style Remote Console Base Class
+
+XXX Needs more docs
 
 '''
 
@@ -6,12 +9,20 @@ from socket import socket, AF_INET,SOCK_DGRAM,MSG_WAITALL,MSG_PEEK
 from select import select
 from .Exceptions import NoResponseError
 
-class RemoteConsole(object):
+class BaseRemoteConsole(object):
+    '''
+    XXX Needs more docs
+    '''
     _SEQUENCE = 0x00
     _CHUNKSZ = 2048
     _PREFIX_BYTE = 0xff
-    
+    _RCON_CMD = 'rcon '
     def __init__(self,password,hostname='localhost',port=28960):
+        '''
+        :param: password - string password for server
+        :param: hostname - string, name or IP address of server
+        :param: port     - integer, port number to contact on hostname
+        '''
         self.password = password
         self.host = hostname
         self.port = port
@@ -25,10 +36,10 @@ class RemoteConsole(object):
     @property
     def reply_header(self):
         '''
-        Override this property and provide a string that may or
-        may not be a prefix to data returned by the server.
+        Override this property and provide a byte buffer that 
+        is prefixed to data returned by the server.
         '''
-        return bytes([0xde,0xad,0xbe,0xef])
+        return ''
 
     @property
     def prefix(self):
@@ -37,47 +48,55 @@ class RemoteConsole(object):
         console. The Quake-style of prefix was four bytes of 0xFF
         followed by the string 'rcon'.  Later derivitives like
         Call of Duty added a sequence byte inbetween the last 0xFF
-        and the 'rcon' string. CoD4 will accept sequence values of
-        2,6,11 .. mumble .. and 31.  I don't know what it means.
+        and the 'rcon' string.
         '''
         try:
             return self._prefix
         except AttributeError:
-            # 0xffffffff,0xYYrcon\s
             data = [self._PREFIX_BYTE] * 4
             try:
                 data.append(self._SEQUENCE)
             except AttributeError:
                 pass
-            data.extend(map(ord,'rcon '))
+            data.extend(map(ord,self._RCON_CMD))
             self._prefix = bytes(data)
-        return self._prefix    
+        return self._prefix
     
     
     def send(self,message,encoding,timeout,retries):
         '''
+        :param: message  - string holding command to send to server
+        :param: encoding - string, typically 'utf-8'
+        :param: timeout  - float value in seconds 
+        :param: retries  - integer number of times to timeout before failing
+
+        :return: string server response to client message
+
         Sends 'message' to the server and waits for a response.
-        Longer responses may spawn UDP packets and so may require
-        multiple recv() calls. There doesn't seem to be an EOM marker,
-        so we wait until there has been a lull in the data sent from the
-        server before zortching off the 0xffffffffprint\n from the 
-        beginning of each block and concatenating the blocks.
+
+        Longer responses may entail receiving multiple UDP packets to
+        collect the entire response.
+
+        The protocol does not have an EOM component, so a timeout
+        scheme is used to decide when the response is complete.
+
+        If no data is received after (timeout * retries) seconds,
+        the NoResponseError exception is raised with message that was
+        not acknowledged and the timeout and retries used. 
+
         '''
         
         data = self.prefix + bytes('%s %s'%(self.password,message),encoding)
         
-        self.sock.sendto(data,self.address)
+        self.udp_sock.sendto(data,self.address)
 
         tries = 0
         chunks = []
         while True:
-            read_ready,_,_ = select([self.sock],[],[],timeout)
-            if self.sock in read_ready:
-                data = self.sock.recv(self._CHUNKSZ)
-
-                #print(self._CHUNKSZ,len(data),data[4:20],data[-16:])
-                
-                if data.startswith(self.reply_header):
+            read_ready,_,_ = select([self.udp_sock],[],[],timeout)
+            if self.udp_sock in read_ready:
+                data = self.udp_sock.recv(self._CHUNKSZ)
+                if  data.startswith(self.reply_header):
                     chunks.append(data[len(self.reply_header):])
                 else:
                     raise ValueError(data)
@@ -96,30 +115,33 @@ class RemoteConsole(object):
 
             
     @property
-    def sock(self):
+    def udp_sock(self):
+        '''
+        An (AF_INET,SOCK_DGRAM) socket
+        '''
         try:
-            return self._sock
+            return self._udp_sock
         except AttributeError:
-            self._sock = socket(AF_INET,SOCK_DGRAM)
-        return self._sock
+            self._udp_sock = socket(AF_INET,SOCK_DGRAM)
+        return self._udp_sock
 
     @property
     def address(self):
+        '''
+        A tuple of (host,port), determines where messages are sent.
+        '''
         return (self.host,self.port)
     
-
-    def clean(self,text,strdefs=None,emptyString=''):
+    def clean(self,text,strdefs,emptyString=''):
         '''
-        text    : string to be 'cleaned'
-        strdefs : a list of tuples (start_character,length) 
+        :param: text    - string to be 'cleaned'
+        :param: strdefs - list of tuples [(start_character,length)..]
+        :return: string with substrings defined in strdefs removed
 
         Elides strings from the target text that start with
         the specified character for the specified length.
-        
-        CoD4 embeds ^# codes in text to specify color choices
-        and is over-enthusiastic with it's use of double quotes.
-
         '''
+        
         if strdefs is None:
             strdefs = [ ('^',2), ('"',1) ]
 
