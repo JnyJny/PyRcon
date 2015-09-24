@@ -23,13 +23,13 @@ class BaseRemoteConsole(object):
         :param: hostname - string, name or IP address of server
         :param: port     - integer, port number to contact on hostname
         '''
-        self.password = password
+        self.passwd = password
         self.host = hostname
         self.port = port
 
     def __repr__(self):
         return '<%s(%s,%s,%s)>' % (self.__class__.__name__,
-                                   self.password,
+                                   self.passwd,
                                    self.host,
                                    self.port)
 
@@ -84,7 +84,7 @@ class BaseRemoteConsole(object):
         '''
         :param: message  - string holding command to send to server
         :param: encoding - string, typically 'utf-8'   XXX necessary?
-        :param: timeout  - float value in seconds 
+        :param: timeout  - float seconds to wait for a response 
         :param: retries  - integer number of times to timeout before failing
 
         :return: string server response to client message
@@ -102,7 +102,7 @@ class BaseRemoteConsole(object):
 
         '''
         
-        data = self.prefix + bytes('%s %s'%(self.password,message),encoding)
+        data = self.prefix + bytes('%s %s'%(self.passwd,message),encoding)
         
         self.udp_sock.sendto(data,self.address)
 
