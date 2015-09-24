@@ -1,8 +1,9 @@
-from . import RemoteConsole
+
+from .QuakeStyleRemoteConsole import RemoteConsole as RemoteConsoleBase
 from .Exceptions import *
 from time import sleep
 
-class CoD4RemoteConsole(RemoteConsole):
+class RemoteConsole(RemoteConsoleBase):
     '''
     '''
     _SEQUENCE=0x02
@@ -37,10 +38,10 @@ class CoD4RemoteConsole(RemoteConsole):
         are present in the data returend from the remote console.
         '''
 
-        text = super(CoD4RemoteConsole,self).send(message,
-                                                  encoding,
-                                                  timeout,
-                                                  retries)
+        text = super(RemoteConsole,self).send(message,
+                                              encoding,
+                                              timeout,
+                                              retries)
         lctext = text[:32].lower()
 
         for phrase in [ 'usage:','unknown command' ]:
@@ -586,5 +587,5 @@ class CoD4RemoteConsole(RemoteConsole):
         '''
         results = self.send('writedefaults %s' % (filename))
 
-r = CoD4RemoteConsole('foobar')
+#r = RemoteConsole('foobar')
 
