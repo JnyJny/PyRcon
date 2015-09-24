@@ -505,7 +505,7 @@ class RemoteConsole(BaseRemoteConsole):
         results = self._list('dumpuser %s' %(playerName))
         
         if results[0].lower().count('not on the server'):
-            raise PlayerNotFound(user) # XXX exception or empty dict?
+            raise PlayerNotFound(playerName) # XXX exception or empty dict?
         d = {}
         for pair in results[2:]:
             key,value = pair.split()
@@ -740,10 +740,10 @@ class RemoteConsole(BaseRemoteConsole):
         '''
         results = self.send('set %s %s' % (name,value))        
 
-    def setPerk(self,user,perk):
+    def setPerk(self,playerName,perk):
         '''
         '''
-        results = self.send('setPerk %s %s' %(user,perk))
+        results = self.send('setPerk %s %s' %(playerName,perk))
 
     def setDvarToTime(self,dvarname):
         '''
@@ -776,10 +776,10 @@ class RemoteConsole(BaseRemoteConsole):
         '''
         results = self.send('tempBanClient %s' % (clientNumber))
 
-    def tempBanUser(self,user):
+    def tempBanPlayerName(self,playerName):
         '''
         '''
-        results = self.send('tempBanUser %s' % (user))
+        results = self.send('tempBanPlayerName %s' % (playerName))
 
     def timedemo(self):
         '''
@@ -805,11 +805,6 @@ class RemoteConsole(BaseRemoteConsole):
         '''
         '''
         pass
-
-    def unbanUser(self,user):
-        '''
-        '''
-        results = self.send('unbanUser %s' % (user))
 
     def unbind(self,key=None):
         '''
