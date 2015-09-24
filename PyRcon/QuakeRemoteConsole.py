@@ -89,20 +89,16 @@ class BaseRemoteConsole(object):
 
         :return: string server response to client message
 
-        Sends 'message' to the server and waits for a response.
-
-        Longer responses may entail receiving multiple UDP packets to
-        collect the entire response.  Changing the timeout duration
-        and the retries count will allow callers to find values that
-        work for their target server.
+        Sends 'message' to the server and waits for a response,
+        which is returned to the caller.
 
         The Quake-style protocol does not have an EOM component, so a
-        timeout scheme is used to decide when the response is
-        complete.
+        timeout scheme is used to decide when the response is complete.
 
-        If no data is received after (timeout * retries) seconds,
-        the NoResponseError exception is raised with message that was
-        not acknowledged and the timeout and retries used.
+        If no data is received after (timeout * retries) seconds, the
+        NoResponseError exception is raised which will contain the
+        message that was not acknowledged and the timeout and retries
+        used.
 
         '''
         
