@@ -9,30 +9,49 @@ from .Exceptions import NoResponseError
 class RemoteConsole(object):
     _SEQUENCE = 0x00
     _CHUNKSZ = 2048
+    _PREFIX_BYTE = 0xff
     
     def __init__(self,password,hostname='localhost',port=28960):
         self.password = password
         self.host = hostname
         self.port = port
-        
-    def __str__(self):
-        return self.status()
 
     def __repr__(self):
         return '<%s(%s,%s,%s)>' % (self.__class__.__name__,
                                    self.password,
-                                   self.hostname,
+                                   self.host,
                                    self.port)
 
     @property
     def reply_header(self):
+        '''
+        Override this property and provide a string that may or
+        may not be a prefix to data returned by the server.
+        '''
+        return bytes([0xde,0xad,0xbe,0xef])
+
+    @property
+    def prefix(self):
+        '''
+        Bytes values prefixing each command sent to the remote
+        console. The Quake-style of prefix was four bytes of 0xFF
+        followed by the string 'rcon'.  Later derivitives like
+        Call of Duty added a sequence byte inbetween the last 0xFF
+        and the 'rcon' string. CoD4 will accept sequence values of
+        2,6,11 .. mumble .. and 31.  I don't know what it means.
+        '''
         try:
-            return self._reply_header
+            return self._prefix
         except AttributeError:
-            data = [0xff,0xff,0xff,0xff]
-            data.extend(map(lambda c:ord(c),'print\n'))
-            self._reply_header = bytes(data)
-        return self._reply_header
+            # 0xffffffff,0xYYrcon\s
+            data = [self._PREFIX_BYTE] * 4
+            try:
+                data.append(self._SEQUENCE)
+            except AttributeError:
+                pass
+            data.extend(map(ord,'rcon '))
+            self._prefix = bytes(data)
+        return self._prefix    
     
     
     def send(self,message,encoding,timeout,retries):
@@ -116,23 +135,5 @@ class RemoteConsole(object):
         return text
     
         
-    @property
-    def prefix(self):
-        '''
-        Bytes values prefixing each command sent to the remote
-        console. The Quake-style of prefix was four bytes of 0xFF
-        followed by the string 'rcon'.  Later derivitives like
-        Call of Duty added a sequence byte inbetween the last 0xFF
-        and the 'rcon' string. CoD4 will accept sequence values of
-        2,6,11 .. mumble .. and 31.  I don't know what it means.
-        '''
-        try:
-            return self._prefix
-        except AttributeError:
-            # 0xffffffff,0x02rcon\s
-            data = [0xff,0xff,0xff,0xff,self._SEQUENCE]
-            data.extend(map(ord,'rcon '))
-            self._prefix = bytearray(data)
-                                 
-        return self._prefix
+
 

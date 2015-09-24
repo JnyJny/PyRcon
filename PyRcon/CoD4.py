@@ -30,6 +30,21 @@ class RemoteConsole(RemoteConsoleBase):
               'mp_creek':      'Creek',
               'mp_killhouse':  'Killhouse' }
 
+    def __str__(self):
+        return self.status
+
+    @property
+    def reply_header(self):
+        '''
+        '''
+        try:
+            return self._reply_header
+        except AttributeError:
+            data = [self._PREFIX_BYTE] * 4
+            data.extend(map(ord,'print\n'))
+            self._reply_header = bytes(data)
+        return self._reply_header
+
     def send(self,message,encoding='utf-8',timeout=0.05,retries=2):
         '''
         Send a message to the remote console. 
